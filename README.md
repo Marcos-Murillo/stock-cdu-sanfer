@@ -2,6 +2,8 @@
 
 Préstamo de implementos deportivos — sede San Fernando (CDU Univalle).
 
+**Producción:** https://stock-cdu-sanfer.app
+
 - Inventario y préstamos: Firebase `stockcdusanfer`
 - Usuarios: lookup desde CDUControl / gym_cdu (`espacioscdu`)
 - Préstamo público: `/prestamos`
