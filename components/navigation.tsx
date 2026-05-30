@@ -17,7 +17,7 @@ export default function Navigation() {
         <div className="flex items-center justify-between h-16">
           <Link href={isMonitor ? "/loans" : "/"} className="flex items-center space-x-2">
             <Package className="w-6 h-6" />
-            <span className="font-bold text-lg">Inventario Deportivo</span>
+            <span className="font-bold text-lg">Stock CDU · San Fernando</span>
           </Link>
 
           <div className="flex space-x-1">
@@ -37,10 +37,16 @@ export default function Navigation() {
                 </Button>
               </Link>
             )}
+            <Link href="/prestamos">
+              <Button variant="ghost" className="text-white hover:bg-blue-700">
+                <Users className="w-4 h-4 mr-2" />
+                Préstamos público
+              </Button>
+            </Link>
             <Link href="/loans">
               <Button variant="ghost" className="text-white hover:bg-blue-700">
                 <Users className="w-4 h-4 mr-2" />
-                Préstamos
+                Gestión préstamos
               </Button>
             </Link>
             {!isMonitor && (

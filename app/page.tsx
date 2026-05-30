@@ -24,10 +24,15 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-blue-800 mb-4">Sistema de Inventario Deportivo</h1>
+          <h1 className="text-4xl font-bold text-blue-800 mb-4">Inventario Deportivo · San Fernando</h1>
           <p className="text-lg text-blue-700 max-w-2xl mx-auto">
-            Gestiona el inventario de implementos deportivos de la Universidad del Valle
+            Implementos y préstamos del CDU San Fernando. Usuarios desde Gym Control.
           </p>
+          <Link href="/prestamos" className="inline-block mt-4">
+            <Button variant="outline" className="border-blue-600 text-blue-700">
+              Página pública de préstamos (usuarios)
+            </Button>
+          </Link>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">

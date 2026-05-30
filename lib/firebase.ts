@@ -11,83 +11,24 @@ import {
   deleteDoc,
   query,
   orderBy,
-  where,
   Timestamp,
   increment,
   writeBatch,
 } from "firebase/firestore"
-import type { InventoryItem, Loan, DamageReport, BorrowerSuggestion, User } from "./types"
+import type { InventoryItem, Loan, DamageReport } from "./types"
 
-// Configuración de Firebase
+// Firebase Stock CDU — San Fernando (implementos y préstamos)
 const firebaseConfig = {
-  apiKey: "AIzaSyCqdvCQrUVFG953lsaHTXvcweTnacixX3s",
-  authDomain: "stock-cdu.firebaseapp.com",
-  projectId: "stock-cdu",
-  storageBucket: "stock-cdu.firebasestorage.app",
-  messagingSenderId: "185915862646",
-  appId: "1:185915862646:web:ba4c8e4810543849b97957"
+  apiKey: "AIzaSyBhdMWSdpGS-xLSmJf0LPwlAgXqSWU3Jxo",
+  authDomain: "stockcdusanfer.firebaseapp.com",
+  projectId: "stockcdusanfer",
+  storageBucket: "stockcdusanfer.firebasestorage.app",
+  messagingSenderId: "555150889561",
+  appId: "1:555150889561:web:e299e12b3c0c8314461748",
 }
 
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
-
-// Funciones para usuarios
-export const createUser = async (user: Omit<User, "id">) => {
-  try {
-    // Verificar si ya existe un usuario con esa cédula
-    const existingUser = await getUserByCedula(user.cedula)
-    if (existingUser) {
-      throw new Error("Ya existe un usuario registrado con esta cédula")
-    }
-
-    const docRef = await addDoc(collection(db, "users"), {
-      ...user,
-      createdAt: Timestamp.fromDate(user.createdAt),
-    })
-    return docRef.id
-  } catch (error) {
-    console.error("Error creating user:", error)
-    if (error instanceof Error) {
-      throw new Error(error.message)
-    }
-    throw new Error("Error desconocido al crear usuario")
-  }
-}
-
-export const getUserByCedula = async (cedula: string): Promise<User | null> => {
-  try {
-    const q = query(collection(db, "users"), where("cedula", "==", cedula))
-    const querySnapshot = await getDocs(q)
-    
-    if (querySnapshot.empty) {
-      return null
-    }
-    
-    const doc = querySnapshot.docs[0]
-    return {
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt.toDate(),
-    } as User
-  } catch (error) {
-    console.error("Error getting user by cedula:", error)
-    return null
-  }
-}
-
-export const getUsers = async (): Promise<User[]> => {
-  try {
-    const querySnapshot = await getDocs(query(collection(db, "users"), orderBy("createdAt", "desc")))
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt.toDate(),
-    })) as User[]
-  } catch (error) {
-    console.error("Error getting users:", error)
-    return []
-  }
-}
 
 // Funciones para el inventario
 export const addItem = async (item: Omit<InventoryItem, "id">) => {
@@ -396,43 +337,6 @@ export const returnLoan = async (loanId: string) => {
       throw new Error(`Error al procesar devolución: ${error.message}`)
     }
     throw new Error("Error desconocido al procesar devolución")
-  }
-}
-
-// Funciones para sugerencias de prestatarios
-export const getBorrowerSuggestions = async (searchTerm: string): Promise<BorrowerSuggestion[]> => {
-  try {
-    // Primero buscar en usuarios registrados
-    const usersSnapshot = await getDocs(collection(db, "users"))
-    const users = usersSnapshot.docs.map((doc) => doc.data()) as User[]
-    
-    const userSuggestions = users
-      .filter(
-        (user) =>
-          user.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.cedula.includes(searchTerm) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (user.codigoEstudiantil && user.codigoEstudiantil.includes(searchTerm))
-      )
-      .map((user) => ({
-        name: user.nombre,
-        document: user.cedula,
-        phone: user.telefono,
-        email: user.email,
-        code: user.codigoEstudiantil,
-        facultad: user.facultad,
-        programa: user.programa,
-        genero: user.genero,
-        etnia: user.etnia,
-        sede: user.sede,
-        estamento: user.estamento,
-      }))
-
-    if (!searchTerm) return userSuggestions.slice(0, 5)
-    return userSuggestions.slice(0, 5)
-  } catch (error) {
-    console.error("Error getting borrower suggestions:", error)
-    return []
   }
 }
 

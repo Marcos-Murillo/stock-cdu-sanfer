@@ -1,53 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Colección de usuarios
-    match /users/{userId} {
-      // Permitir lectura a todos
-      allow read: if true;
-      
-      // Permitir crear usuarios
-      allow create: if true;
-      
-      // Permitir actualizar solo si el documento ya existe
-      allow update: if exists(/databases/$(database)/documents/users/$(userId));
-      
-      // No permitir eliminar usuarios
-      allow delete: if false;
-    }
-    
-    // Colección de inventario
+
     match /inventory/{itemId} {
-      // Permitir lectura a todos
       allow read: if true;
-      
-      // Permitir crear, actualizar y eliminar elementos
       allow create, update, delete: if true;
     }
-    
-    // Colección de préstamos
+
     match /loans/{loanId} {
-      // Permitir lectura a todos
       allow read: if true;
-      
-      // Permitir crear y actualizar préstamos
       allow create, update: if true;
-      
-      // No permitir eliminar préstamos (mantener historial)
       allow delete: if false;
     }
-    
-    // Colección de reportes de daños
+
     match /damageReports/{reportId} {
-      // Permitir lectura a todos
       allow read: if true;
-      
-      // Permitir crear y actualizar reportes
       allow create, update: if true;
-      
-      // No permitir eliminar reportes (mantener historial)
       allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

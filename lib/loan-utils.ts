@@ -1,12 +1,13 @@
-import type { Loan, MissingItemRecord } from './types'
+import type { Loan, MissingItemRecord, CartItem } from "./types"
+import type { LoanBorrowerForm } from "./loan-borrower"
 
 export function formatDateTime(date: Date): string {
-  return date.toLocaleString('es-CO', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return date.toLocaleString("es-CO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   })
 }
 
@@ -42,7 +43,7 @@ export interface LoanGroupSummary {
 }
 
 export function buildLoanGroupSummaries(loans: Loan[]): LoanGroupSummary[] {
-  const returned = loans.filter((l) => l.status === 'returned')
+  const returned = loans.filter((l) => l.status === "returned")
   const byGroup = new Map<string, Loan[]>()
 
   for (const loan of returned) {
@@ -53,28 +54,18 @@ export function buildLoanGroupSummaries(loans: Loan[]): LoanGroupSummary[] {
   }
 
   return Array.from(byGroup.entries()).map(([groupId, groupLoans]) => {
-    const sorted = [...groupLoans].sort(
-      (a, b) => a.loanDate.getTime() - b.loanDate.getTime(),
-    )
+    const sorted = [...groupLoans].sort((a, b) => a.loanDate.getTime() - b.loanDate.getTime())
     const withMissing = groupLoans.find((l) => l.missingItems && l.missingItems.length > 0)
     const primaryLoan = withMissing ?? sorted[0]
-    const returnDates = groupLoans
-      .map((l) => l.returnDate)
-      .filter((d): d is Date => Boolean(d))
+    const returnDates = groupLoans.map((l) => l.returnDate).filter((d): d is Date => Boolean(d))
     const latestReturn =
-      returnDates.length > 0
-        ? new Date(Math.max(...returnDates.map((d) => d.getTime())))
-        : undefined
+      returnDates.length > 0 ? new Date(Math.max(...returnDates.map((d) => d.getTime()))) : undefined
 
-    const itemNames = Array.from(
-      new Set(groupLoans.map((l) => l.itemName).filter(Boolean)),
-    )
+    const itemNames = Array.from(new Set(groupLoans.map((l) => l.itemName).filter(Boolean)))
 
     const hadMissing = Boolean(primaryLoan.missingItems?.length)
     const missingResolved =
-      hadMissing &&
-      (Boolean(primaryLoan.missingResolvedAt) ||
-        !hasPendingMissing(primaryLoan))
+      hadMissing && (Boolean(primaryLoan.missingResolvedAt) || !hasPendingMissing(primaryLoan))
 
     return {
       groupId,
@@ -105,4 +96,40 @@ export function matchesLoanGroupSearch(group: LoanGroupSummary, term: string): b
   if (group.itemNames.some((n) => n.toLowerCase().includes(q))) return true
 
   return false
+}
+
+export function buildLoansFromCart(
+  borrower: LoanBorrowerForm,
+  cart: CartItem[],
+  loanDate = new Date(),
+): Omit<Loan, "id">[] {
+  const loanGroupId = `${Date.now()}-${borrower.borrowerDocument}`
+  const allLoans: Omit<Loan, "id">[] = []
+
+  for (const cartItem of cart) {
+    for (const item of cartItem.items) {
+      const loanData: Omit<Loan, "id"> = {
+        borrowerName: borrower.borrowerName,
+        borrowerDocument: borrower.borrowerDocument,
+        borrowerPhone: borrower.borrowerPhone,
+        borrowerEmail: borrower.borrowerEmail,
+        genero: borrower.genero,
+        etnia: borrower.etnia,
+        sede: borrower.sede,
+        estamento: borrower.estamento,
+        itemId: item.id!,
+        itemName: item.name,
+        itemSerialNumber: item.serialNumber,
+        loanDate,
+        status: "active",
+        loanGroupId,
+      }
+      if (borrower.borrowerCode) loanData.borrowerCode = borrower.borrowerCode
+      if (borrower.facultad) loanData.facultad = borrower.facultad
+      if (borrower.programa) loanData.programa = borrower.programa
+      allLoans.push(loanData)
+    }
+  }
+
+  return allLoans
 }

@@ -1,20 +1,20 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
-import { Search, UserCheck, Package, UserPlus, ShoppingCart, X, Plus } from "lucide-react"
+import { Search, UserCheck, Package } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { getInventory, getLoans, createLoan, createLoanBatch, returnLoan, returnLoansBatch, returnLoanGroupPartial } from "@/lib/firebase"
+import { getInventory, getLoans, createLoanBatch, returnLoan, returnLoansBatch, returnLoanGroupPartial } from "@/lib/firebase"
 import type { InventoryItem, Loan, CartItem } from "@/lib/types"
 import Navigation from "@/components/navigation"
-import BorrowerAutocomplete from "@/components/borrower-autocomplete"
-import { useRouter } from "next/navigation"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import GymUserSearch from "@/components/gym-user-search"
+import LoanCartForm from "@/components/loan-cart-form"
+import type { LoanBorrowerForm } from "@/lib/loan-borrower"
+import { buildLoansFromCart } from "@/lib/loan-utils"
 import { RouteGuard } from "@/components/route-guard"
 import PartialReturnDialog from "@/components/partial-return-dialog"
 
@@ -23,27 +23,9 @@ export default function LoansPage() {
   const [loans, setLoans] = useState<Loan[]>([])
   const [filteredLoans, setFilteredLoans] = useState<Loan[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [selectedItemName, setSelectedItemName] = useState("")
-  const [selectedQuantity, setSelectedQuantity] = useState(1)
-  const [formData, setFormData] = useState({
-    borrowerName: "",
-    borrowerDocument: "",
-    borrowerPhone: "",
-    borrowerEmail: "",
-    borrowerCode: "",
-    facultad: "",
-    programa: "",
-    genero: "",
-    etnia: "",
-    sede: "",
-    estamento: "",
-    itemId: "",
-    loanDate: new Date().toISOString().split("T")[0],
-  })
+  const [borrower, setBorrower] = useState<LoanBorrowerForm | null>(null)
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
-  const router = useRouter()
 
   // Estado para el dialog de devolución parcial
   const [partialReturnGroup, setPartialReturnGroup] = useState<Loan[] | null>(null)
@@ -83,72 +65,37 @@ export default function LoansPage() {
     }
   }
 
-  // Obtener nombres únicos de elementos disponibles
-  const uniqueItemNames = Array.from(new Set(availableItems.map(item => item.name)))
-
-  // Obtener elementos disponibles por nombre
-  const getAvailableItemsByName = (name: string) => {
-    return availableItems.filter(item => item.name === name)
-  }
-
-  // Agregar elemento al carrito
-  const handleAddToCart = () => {
-    if (!selectedItemName) {
+  const handleStaffLoanSubmit = async (cart: CartItem[]) => {
+    if (!borrower?.borrowerName) {
       toast({
         title: "Error",
-        description: "Selecciona un elemento",
+        description: "Busca al usuario en Gym Control primero",
         variant: "destructive",
       })
       return
     }
 
-    const availableForName = getAvailableItemsByName(selectedItemName)
-    
-    if (selectedQuantity > availableForName.length) {
+    setLoading(true)
+    try {
+      const allLoans = buildLoansFromCart(borrower, cart)
+      await createLoanBatch(allLoans)
+      const total = cart.reduce((n, c) => n + c.quantity, 0)
+      toast({
+        title: "Éxito",
+        description: `Préstamo de ${total} elementos registrado correctamente`,
+      })
+      setBorrower(null)
+      loadData()
+    } catch (error) {
       toast({
         title: "Error",
-        description: `Solo hay ${availableForName.length} ${selectedItemName} disponibles`,
+        description: error instanceof Error ? error.message : "No se pudo registrar el préstamo",
         variant: "destructive",
       })
-      return
+      throw error
+    } finally {
+      setLoading(false)
     }
-
-    // Verificar si ya está en el carrito
-    const existingCartItem = cart.find(item => item.itemName === selectedItemName)
-    if (existingCartItem) {
-      toast({
-        title: "Error",
-        description: "Este elemento ya está en el carrito",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const itemsToAdd = availableForName.slice(0, selectedQuantity)
-    
-    setCart([...cart, {
-      itemName: selectedItemName,
-      items: itemsToAdd,
-      quantity: selectedQuantity
-    }])
-
-    setSelectedItemName("")
-    setSelectedQuantity(1)
-
-    toast({
-      title: "Agregado",
-      description: `${selectedQuantity} ${selectedItemName} agregado(s) al carrito`,
-    })
-  }
-
-  // Remover elemento del carrito
-  const handleRemoveFromCart = (itemName: string) => {
-    setCart(cart.filter(item => item.itemName !== itemName))
-  }
-
-  // Calcular total de elementos en el carrito
-  const getTotalItemsInCart = () => {
-    return cart.reduce((total, item) => total + item.quantity, 0)
   }
 
   // Agrupar préstamos por loanGroupId
@@ -162,98 +109,6 @@ export default function LoansPage() {
       groups[groupId].push(loan)
       return groups
     }, {} as Record<string, Loan[]>)
-
-  const handleCreateLoan = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Validación básica
-    if (!formData.borrowerName || !formData.borrowerDocument) {
-      toast({
-        title: "Error",
-        description: "Debe seleccionar un usuario",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (cart.length === 0) {
-      toast({
-        title: "Error",
-        description: "Debe agregar al menos un elemento al carrito",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setLoading(true)
-    try {
-      // Generar un ID único para agrupar todos los préstamos
-      const loanGroupId = `${Date.now()}-${formData.borrowerDocument}`
-
-      const loanDate = new Date()
-
-      // Construir todos los préstamos del carrito y enviarlos en un solo batch
-      const allLoans: any[] = []
-      for (const cartItem of cart) {
-        for (const item of cartItem.items) {
-          const loanData: any = {
-            borrowerName: formData.borrowerName,
-            borrowerDocument: formData.borrowerDocument,
-            borrowerPhone: formData.borrowerPhone,
-            borrowerEmail: formData.borrowerEmail,
-            genero: formData.genero,
-            etnia: formData.etnia,
-            sede: formData.sede,
-            estamento: formData.estamento,
-            itemId: item.id!,
-            itemName: item.name,
-            itemSerialNumber: item.serialNumber,
-            loanDate: loanDate,
-            status: "active",
-            loanGroupId: loanGroupId,
-          }
-          if (formData.borrowerCode) loanData.borrowerCode = formData.borrowerCode
-          if (formData.facultad) loanData.facultad = formData.facultad
-          if (formData.programa) loanData.programa = formData.programa
-          allLoans.push(loanData)
-        }
-      }
-
-      await createLoanBatch(allLoans)
-
-      toast({
-        title: "Éxito",
-        description: `Préstamo de ${getTotalItemsInCart()} elementos registrado correctamente`,
-      })
-
-      // Limpiar formulario y carrito
-      setFormData({
-        borrowerName: "",
-        borrowerDocument: "",
-        borrowerPhone: "",
-        borrowerEmail: "",
-        borrowerCode: "",
-        facultad: "",
-        programa: "",
-        genero: "",
-        etnia: "",
-        sede: "",
-        estamento: "",
-        itemId: "",
-        loanDate: new Date().toISOString().split("T")[0],
-      })
-      setCart([])
-      loadData()
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "No se pudo registrar el préstamo",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleReturnLoan = async (loanId: string) => {
     if (!confirm("¿Confirmar la devolución de este elemento?")) {
@@ -328,15 +183,7 @@ export default function LoansPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-800">Préstamos Deportivos</h1>
-          <Button 
-            onClick={() => router.push("/registro")} 
-            variant="outline"
-            className="border-blue-600 text-blue-600 hover:bg-blue-50"
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Registrar Usuario
-          </Button>
+          <h1 className="text-3xl font-bold text-blue-800">Préstamos · San Fernando</h1>
         </div>
 
         {/* Layout de dos columnas */}
@@ -352,182 +199,19 @@ export default function LoansPage() {
                 <CardDescription>Complete los datos para registrar un préstamo</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleCreateLoan} className="space-y-4">
-                  {/* Autocompletado */}
-                  <BorrowerAutocomplete
-                    onSelect={() => {}}
-                    formData={formData}
-                    setFormData={setFormData}
+                <div className="space-y-4">
+                  <GymUserSearch
+                    onUserConfirmed={(form) => setBorrower(form)}
+                    onClear={() => setBorrower(null)}
                   />
-
-                  {/* Campos de solo lectura que se llenan automáticamente */}
-                  <div>
-                    <Label className="text-xs text-gray-500">Solicitante</Label>
-                    <Input
-                      value={formData.borrowerName}
-                      readOnly
-                      className="bg-gray-50"
-                      placeholder="Se llenará automáticamente"
-                    />
-                  </div>
-
-                  {formData.borrowerCode && (
-                    <div>
-                      <Label className="text-xs text-gray-500">Código</Label>
-                      <Input
-                        value={formData.borrowerCode}
-                        readOnly
-                        className="bg-gray-50"
-                      />
-                    </div>
-                  )}
-
-                  {formData.facultad && (
-                    <div>
-                      <Label className="text-xs text-gray-500">Facultad</Label>
-                      <Input
-                        value={formData.facultad}
-                        readOnly
-                        className="bg-gray-50 text-xs"
-                      />
-                    </div>
-                  )}
-
-                  {formData.programa && (
-                    <div>
-                      <Label className="text-xs text-gray-500">Programa</Label>
-                      <Input
-                        value={formData.programa}
-                        readOnly
-                        className="bg-gray-50 text-xs"
-                      />
-                    </div>
-                  )}
-
-                  {formData.estamento && (
-                    <div>
-                      <Label className="text-xs text-gray-500">Estamento</Label>
-                      <Input
-                        value={formData.estamento}
-                        readOnly
-                        className="bg-gray-50"
-                      />
-                    </div>
-                  )}
-
-                  {formData.sede && (
-                    <div>
-                      <Label className="text-xs text-gray-500">Sede</Label>
-                      <Input
-                        value={formData.sede}
-                        readOnly
-                        className="bg-gray-50"
-                      />
-                    </div>
-                  )}
-
-                  {/* Selector de elementos y carrito */}
-                  <div className="pt-2 space-y-4">
-                    <div className="border-t pt-4">
-                      <Label className="text-sm font-semibold text-blue-800 mb-2 block">
-                        Agregar Elementos
-                      </Label>
-                      
-                      <div className="space-y-2">
-                        <Select
-                          value={selectedItemName}
-                          onValueChange={setSelectedItemName}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar elemento" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {uniqueItemNames.map((name) => {
-                              const available = getAvailableItemsByName(name).length
-                              return (
-                                <SelectItem key={name} value={name}>
-                                  {name} ({available} disponibles)
-                                </SelectItem>
-                              )
-                            })}
-                          </SelectContent>
-                        </Select>
-
-                        {selectedItemName && (
-                          <div className="flex gap-2">
-                            <div className="flex-1">
-                              <Input
-                                type="number"
-                                min="1"
-                                max={getAvailableItemsByName(selectedItemName).length}
-                                value={selectedQuantity}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value)
-                                  if (!isNaN(val)) setSelectedQuantity(val)
-                                }}
-                                placeholder="Cantidad"
-                              />
-                            </div>
-                            <Button
-                              type="button"
-                              onClick={handleAddToCart}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Carrito */}
-                    {cart.length > 0 && (
-                      <div className="border-t pt-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="text-sm font-semibold text-blue-800">
-                            <ShoppingCart className="w-4 h-4 inline mr-1" />
-                            Carrito ({getTotalItemsInCart()})
-                          </Label>
-                        </div>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {cart.map((cartItem) => (
-                            <div
-                              key={cartItem.itemName}
-                              className="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-200"
-                            >
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-blue-800">
-                                  {cartItem.itemName}
-                                </p>
-                                <p className="text-xs text-gray-600">
-                                  Cantidad: {cartItem.quantity}
-                                </p>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveFromCart(cartItem.itemName)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Botón de registro */}
-                  <Button 
-                    type="submit" 
-                    disabled={loading || !formData.borrowerName || cart.length === 0} 
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                  >
-                    {loading ? "Registrando..." : `Registrar Préstamo (${getTotalItemsInCart()} elementos)`}
-                  </Button>
-                </form>
+                  <LoanCartForm
+                    availableItems={availableItems}
+                    borrower={borrower}
+                    onSubmit={handleStaffLoanSubmit}
+                    submitLabel="Registrar préstamo"
+                    loading={loading}
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>

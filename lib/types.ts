@@ -94,19 +94,3 @@ export interface BorrowerSuggestion {
   sede?: string
   estamento?: string
 }
-
-export interface User {
-  id?: string
-  nombre: string
-  cedula: string
-  email: string
-  telefono?: string
-  codigoEstudiantil?: string
-  facultad?: string
-  programa?: string
-  genero?: string
-  etnia?: string
-  sede?: string
-  estamento?: string
-  createdAt: Date
-}
