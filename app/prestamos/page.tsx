@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { Package } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
@@ -47,14 +46,11 @@ export default function PrestamosPublicPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
       <header className="border-b border-blue-200 bg-blue-600 text-white shadow">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4">
+        <div className="container mx-auto flex h-14 items-center px-4">
           <div className="flex items-center gap-2 font-bold">
             <Package className="h-6 w-6" />
             Préstamo de implementos · San Fernando
           </div>
-          <Link href="/sin-acceso" className="text-sm text-blue-100 hover:text-white">
-            Acceso personal
-          </Link>
         </div>
       </header>
 
