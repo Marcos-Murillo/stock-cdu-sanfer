@@ -10,6 +10,7 @@ export default function Navigation() {
   const { totalCount } = useNotifications()
   const { user } = useAuth()
   const isMonitor = user?.role === "monitor"
+  const isStaff = user?.role === "admin" || user?.role === "superadmin"
 
   return (
     <nav className="bg-blue-600 text-white shadow-lg">
@@ -21,7 +22,7 @@ export default function Navigation() {
           </Link>
 
           <div className="flex space-x-1">
-            {!isMonitor && (
+            {!isMonitor && isStaff && (
               <Link href="/">
                 <Button variant="ghost" className="text-white hover:bg-blue-700">
                   <Home className="w-4 h-4 mr-2" />
@@ -29,7 +30,7 @@ export default function Navigation() {
                 </Button>
               </Link>
             )}
-            {!isMonitor && (
+            {!isMonitor && isStaff && (
               <Link href="/inventory">
                 <Button variant="ghost" className="text-white hover:bg-blue-700">
                   <Package className="w-4 h-4 mr-2" />
@@ -49,7 +50,7 @@ export default function Navigation() {
                 Gestión préstamos
               </Button>
             </Link>
-            {!isMonitor && (
+            {!isMonitor && isStaff && (
               <Link href="/reports">
                 <Button variant="ghost" className="text-white hover:bg-blue-700">
                   <BarChart3 className="w-4 h-4 mr-2" />
@@ -57,7 +58,7 @@ export default function Navigation() {
                 </Button>
               </Link>
             )}
-            {!isMonitor && (
+            {!isMonitor && isStaff && (
               <Link href="/statistics">
                 <Button variant="ghost" className="text-white hover:bg-blue-700">
                   <TrendingUp className="w-4 h-4 mr-2" />
@@ -65,7 +66,7 @@ export default function Navigation() {
                 </Button>
               </Link>
             )}
-            {!isMonitor && (
+            {!isMonitor && isStaff && (
               <Link href="/notifications">
                 <Button variant="ghost" className="text-white hover:bg-blue-700 relative">
                   <Bell className="w-4 h-4 mr-2" />

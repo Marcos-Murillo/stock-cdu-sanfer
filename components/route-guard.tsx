@@ -4,8 +4,12 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 
-// Rutas permitidas para el rol monitor
+// Rutas permitidas para el rol monitor (admin y superadmin: acceso total)
 const MONITOR_ALLOWED_PATHS = ["/loans"]
+
+function hasFullAccess(role: string | undefined) {
+  return role === "admin" || role === "superadmin"
+}
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -19,7 +23,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       return
     }
     // Si es monitor y la ruta no está permitida, redirigir a préstamos
-    if (user.role === "monitor" && !MONITOR_ALLOWED_PATHS.includes(pathname)) {
+    if (!hasFullAccess(user.role) && user.role === "monitor" && !MONITOR_ALLOWED_PATHS.includes(pathname)) {
       router.replace("/loans")
     }
   }, [user, loading, router, pathname])
@@ -35,7 +39,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   if (!user) return null
 
   // Bloquear render si monitor intenta acceder a ruta no permitida
-  if (user.role === "monitor" && !MONITOR_ALLOWED_PATHS.includes(pathname)) {
+  if (!hasFullAccess(user.role) && user.role === "monitor" && !MONITOR_ALLOWED_PATHS.includes(pathname)) {
     return null
   }
 
